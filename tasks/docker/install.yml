@@ -1,4 +1,15 @@
 ---
+- name: Create port list to be exposed
+  set_fact:
+        port_list: 
+          - "{{ jenkins_port }}:8080"
+
+- name: Add jenkins slave port 50000 to the port list if defined
+  set_fact: 
+        port_list: "{{ port_list }} + [ '{{ jenkins_slave_port }}:50000' ]"
+  when: jenkins_expose_slave_port == true
+
+- debug: var=port_list
 
 - name: Ensure jenkins home dir is created
   file:
@@ -8,30 +19,16 @@
     group: "{{ jenkins_config_group }}"
     state: directory
 
-- name: Container is running (with ingress port)
+- name: Container is running
   docker_container:
     name: "{{ jenkins_docker_container_name }}"
     image: "jenkins:{{ jenkins_version }}"
-    published_ports:
-      - "{{ jenkins_port }}:8080"
+    published_ports: "{{ port_list }}"
     volumes:
       - "{{ jenkins_home }}:/var/jenkins_home"
     env:
       JAVA_OPTS: "{{ jenkins_java_opts }}"
   register: container_result
-  when: jenkins_docker_expose_port
-
-- name: Container is running (without ingress port)
-  docker_container:
-    name: "{{ jenkins_docker_container_name }}"
-    image: "jenkins:{{ jenkins_version }}"
-    expose: "8080"
-    volumes:
-      - "{{ jenkins_home }}:/var/jenkins_home"
-    env:
-      JAVA_OPTS: "{{ jenkins_java_opts }}"
-  register: container_result
-  when: not jenkins_docker_expose_port
 
 - pause:
     seconds: 45
